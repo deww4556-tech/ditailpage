@@ -49,6 +49,7 @@
     font-family:'Noto Sans KR', 'Malgun Gothic', sans-serif;
     line-height:1.7;
     -webkit-font-smoothing:antialiased;
+    padding-top:56px;
   }
   ::selection{ background:var(--gold-bg); color:var(--ink); }
   a{ color:inherit; }
@@ -131,7 +132,42 @@
   @media (max-width:900px){
     #ruler{ display:none; }
     body{ padding-left:0; }
+    #topbar{ left:0; }
   }
+
+  /* ---------- topbar / auth ---------- */
+  #topbar{
+    position:fixed;
+    top:0; left:34px; right:0; height:56px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 28px;
+    background:var(--paper);
+    border-bottom:1px solid var(--line);
+    z-index:50;
+  }
+  #topbar .wordmark{
+    font-family:'Gowun Batang',serif;
+    font-weight:700;
+    font-size:1.05rem;
+  }
+  #topbar-auth{ display:flex; align-items:center; min-height:32px; }
+  .kakao-btn{
+    background:#FEE500; color:#181600; border:none; border-radius:20px;
+    padding:8px 16px; font-weight:700; font-size:0.82rem; cursor:pointer;
+    font-family:'Noto Sans KR',sans-serif;
+  }
+  .kakao-btn:focus-visible{ outline:2px solid var(--ink); outline-offset:2px; }
+  .user-chip{ display:flex; align-items:center; gap:10px; }
+  .avatar{ width:28px; height:28px; border-radius:50%; object-fit:cover; border:1px solid var(--line); }
+  .uname{ font-size:0.85rem; font-weight:500; }
+  .logout-btn{
+    background:none; border:1px solid var(--line); border-radius:20px;
+    padding:6px 12px; font-size:0.78rem; color:var(--ink-soft); cursor:pointer;
+    font-family:'Noto Sans KR',sans-serif;
+  }
+  .logout-btn:hover{ color:var(--ink); border-color:var(--ink); }
 
   .wrap{ max-width:1080px; margin:0 auto; padding:0 28px; }
   section{ padding:110px 0; border-bottom:1px solid var(--line); }
@@ -139,7 +175,7 @@
 
   /* ---------- hero ---------- */
   #hero{
-    padding-top:120px;
+    padding-top:64px;
     padding-bottom:90px;
   }
   #hero .inner{ animation:rise 0.7s ease both; }
@@ -400,6 +436,11 @@
     gap:10px;
   }
 </style>
+
+<header id="topbar">
+  <span class="wordmark">낱장</span>
+  <div id="topbar-auth"></div>
+</header>
 
 <div id="ruler" aria-hidden="true">
   <div class="track" id="track">
@@ -677,5 +718,80 @@
     document.addEventListener('scroll', update, { passive:true });
     window.addEventListener('resize', update);
     update();
+  })();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+<script>
+  (function(){
+    var SUPABASE_URL = 'https://eyhlqhabsozrfwfznzvj.supabase.co';
+    var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV5aGxxaGFic296cmZ3ZnpuenZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODkxOTU4NTYsImV4cCI6MjEwNDc3MTg1Nn0.7In1CWOu42FJJJ49E5v9_S5MEMzskPToa6YUDvpagG4';
+
+    var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    var authSlot = document.getElementById('topbar-auth');
+
+    function renderLoggedOut(){
+      authSlot.innerHTML = '';
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'kakao-btn';
+      btn.textContent = '카카오로 시작하기';
+      btn.addEventListener('click', signInWithKakao);
+      authSlot.appendChild(btn);
+    }
+
+    function renderLoggedIn(user){
+      var meta = user.user_metadata || {};
+      var name = meta.name || meta.full_name || meta.nickname || meta.user_name || '회원';
+      var avatarUrl = meta.avatar_url || meta.picture || '';
+
+      authSlot.innerHTML = '';
+      var chip = document.createElement('div');
+      chip.className = 'user-chip';
+
+      if (avatarUrl) {
+        var img = document.createElement('img');
+        img.src = avatarUrl;
+        img.alt = '';
+        img.className = 'avatar';
+        chip.appendChild(img);
+      }
+
+      var uname = document.createElement('span');
+      uname.className = 'uname';
+      uname.textContent = name;
+      chip.appendChild(uname);
+
+      var logoutBtn = document.createElement('button');
+      logoutBtn.type = 'button';
+      logoutBtn.className = 'logout-btn';
+      logoutBtn.textContent = '로그아웃';
+      logoutBtn.addEventListener('click', signOut);
+      chip.appendChild(logoutBtn);
+
+      authSlot.appendChild(chip);
+    }
+
+    async function signInWithKakao(){
+      await sb.auth.signInWithOAuth({
+        provider: 'kakao',
+        options: { redirectTo: window.location.href.split('#')[0] }
+      });
+    }
+
+    async function signOut(){
+      await sb.auth.signOut();
+    }
+
+    sb.auth.onAuthStateChange(function(_event, session){
+      if (session && session.user) { renderLoggedIn(session.user); }
+      else { renderLoggedOut(); }
+    });
+
+    sb.auth.getSession().then(function(res){
+      var session = res.data.session;
+      if (session && session.user) { renderLoggedIn(session.user); }
+      else { renderLoggedOut(); }
+    });
   })();
 </script>
